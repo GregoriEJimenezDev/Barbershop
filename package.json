@@ -1,0 +1,39 @@
+{
+  "name": "barberia-app",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Aplicación web de gestión de citas para peluquería/barbería",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "build:functions": "cd functions && npm install && npm run build",
+    "deploy": "npm run build:functions && npm run build && firebase deploy",
+    "deploy:hosting": "npm run build && firebase deploy --only hosting",
+    "deploy:functions": "npm run build:functions && firebase deploy --only functions",
+    "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "firebase": "^10.13.2",
+    "three": "^0.168.0",
+    "@react-three/fiber": "^8.17.7",
+    "@react-three/drei": "^9.114.0",
+    "date-fns": "^3.6.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.168.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.36.1",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.12",
+    "vite": "^5.4.6"
+  }
+}
