@@ -1,0 +1,77 @@
+name: Deploy to Firebase Hosting
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+
+jobs:
+  build_and_deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Functions dependencies
+        run: |
+          cd functions
+          npm ci
+
+      - name: TypeScript check (Functions)
+        run: |
+          cd functions
+          npx tsc --noEmit
+
+      - name: Lint frontend
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build Functions
+        run: |
+          cd functions
+          npm run build
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Deploy Firestore rules + indexes
+        uses: w9jds/firebase-action@master
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        with:
+          args: deploy --only firestore:rules,firestore:indexes --project ${{ env.FIREBASE_PROJECT_ID }}
+
+      - name: Deploy Cloud Functions
+        uses: w9jds/firebase-action@master
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        with:
+          args: deploy --only functions --project ${{ env.FIREBASE_PROJECT_ID }}
+
+      - name: Deploy Hosting
+        uses: w9jds/firebase-action@master
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        with:
+          args: deploy --only hosting --project ${{ env.FIREBASE_PROJECT_ID }}
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "✅ Deploy completado exitosamente"
+          echo "🌐 URL: https://${{ env.FIREBASE_PROJECT_ID }}.web.app"
