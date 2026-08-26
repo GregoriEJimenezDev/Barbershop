@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 
 /**
  * Generic hook to subscribe to a Firestore collection / document.
- * Manages loading / error states consistently.
- * Silently handles cases where Firebase isn't configured.
+ * Tolerates async subscribe functions (lazy Firebase loading).
+ * Never crashes the UI on subscription errors.
  */
 export const useFirestoreSubscription = (subscribeFn, deps = []) => {
   const [data, setData] = useState(null);
@@ -12,30 +12,48 @@ export const useFirestoreSubscription = (subscribeFn, deps = []) => {
 
   useEffect(() => {
     let unsubscribe = () => {};
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    try {
-      const result = subscribeFn(
+
+    Promise.resolve()
+      .then(() => subscribeFn(
         (result) => {
-          setData(result);
-          setLoading(false);
+          if (!cancelled) {
+            setData(result);
+            setLoading(false);
+          }
         },
         (err) => {
-          // Don't crash the UI on subscription errors
-          setError(err);
-          setLoading(false);
+          if (!cancelled) {
+            setError(err);
+            setLoading(false);
+          }
         }
-      );
-      if (typeof result === 'function') {
-        unsubscribe = result;
-      } else if (result && typeof result.unsubscribe === 'function') {
-        unsubscribe = () => result.unsubscribe();
-      }
-    } catch (e) {
-      setError(e);
-      setLoading(false);
-    }
+      ))
+      .then((result) => {
+        if (cancelled) {
+          if (typeof result === 'function') result();
+          return;
+        }
+        if (typeof result === 'function') {
+          unsubscribe = result;
+        } else if (result && typeof result.unsubscribe === 'function') {
+          unsubscribe = () => result.unsubscribe();
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    // Safety: ensure loading flips off
+    const timer = setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 1500);
+
     return () => {
+      cancelled = true;
+      clearTimeout(timer);
       if (typeof unsubscribe === 'function') unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,7 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getFunctions } from 'firebase/functions';
+import { getAuth as _getAuth } from 'firebase/auth';
+import { getFirestore as _getFirestore } from 'firebase/firestore';
+import { getFunctions as _getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -12,25 +12,40 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-const isValidConfig = Boolean(
-  firebaseConfig.apiKey &&
-    firebaseConfig.projectId &&
-    !firebaseConfig.apiKey.includes('placeholder')
-);
+export const isFirebaseConfigured =
+  Boolean(firebaseConfig.apiKey) &&
+  !String(firebaseConfig.apiKey).includes('placeholder') &&
+  Boolean(firebaseConfig.projectId) &&
+  firebaseConfig.projectId !== 'your-project-id';
 
-// Reuse existing app instance to avoid duplicate-app errors on HMR
-const app = getApps().length
-  ? getApps()[0]
-  : isValidConfig
-    ? initializeApp(firebaseConfig)
-    : initializeApp({ apiKey: 'demo-key', projectId: 'demo' });
+// Initialize with whatever config we have. When invalid, Firebase creates
+// an app instance that won't connect to any server but won't crash either.
+const safeConfig = isFirebaseConfigured
+  ? firebaseConfig
+  : {
+      apiKey: 'demo-api-key',
+      projectId: 'demo-project',
+      authDomain: 'demo.firebaseapp.com',
+      appId: '1:0:web:0'
+    };
 
-// Initialize services but tolerate invalid config so the UI can still render
-// (a demo "app" is used when real credentials are missing)
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const functions = getFunctions(app);
+let app;
+try {
+  app = getApps().length ? getApps()[0] : initializeApp(safeConfig);
+} catch (e) {
+  // Last-resort fallback
+  app = { name: '[DEFAULT]', options: safeConfig };
+}
 
-export const isFirebaseConfigured = isValidConfig;
+let _auth = null;
+let _db = null;
+let _functions = null;
+try { _auth = _getAuth(app); } catch (e) { /* ignored */ }
+try { _db = _getFirestore(app); } catch (e) { /* ignored */ }
+try { _functions = _getFunctions(app); } catch (e) { /* ignored */ }
+
+export const auth = _auth;
+export const db = _db;
+export const functions = _functions;
 
 export default app;

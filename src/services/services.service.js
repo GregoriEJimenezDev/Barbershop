@@ -1,67 +1,59 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  serverTimestamp
-} from 'firebase/firestore';
-import { db } from './firebase.config';
-import { COLLECTIONS, APPOINTMENT_STATUS } from '../utils/constants';
-import { toDateId } from '../utils/helpers';
+import { COLLECTIONS } from '../utils/constants';
+import { db, isFirebaseConfigured } from './firebase.config';
 
-/**
- * Services (Price Board) Service
- * Read operations are open to public. Write operations require admin.
- */
-
-const servicesCollection = collection(db, COLLECTIONS.SERVICES);
-
-/**
- * Subscribe to all services, sorted by name.
- * Used for the public price board and admin management.
- */
-export const subscribeToServices = (callback, onError) => {
-  const q = query(servicesCollection, orderBy('name', 'asc'));
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const services = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      callback(services);
-    },
-    onError
-  );
+const ensure = async () => {
+  if (!isFirebaseConfigured || !db) {
+    throw new Error('Firebase no está configurado. Revisa tu archivo .env.');
+  }
+  return await import('firebase/firestore');
 };
 
-/**
- * Get all services once (non-reactive)
- */
+export const subscribeToServices = async (callback, onError) => {
+  try {
+    const { collection, query, orderBy, onSnapshot } = await ensure();
+    const colRef = collection(db, COLLECTIONS.SERVICES);
+    const q = query(colRef, orderBy('name', 'asc'));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        callback(items);
+      },
+      onError
+    );
+  } catch (e) {
+    if (onError) onError(e);
+    return () => {};
+  }
+};
+
 export const getAllServices = async () => {
-  const q = query(servicesCollection, orderBy('name', 'asc'));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  try {
+    const { collection, query, orderBy, getDocs } = await ensure();
+    const colRef = collection(db, COLLECTIONS.SERVICES);
+    const q = query(colRef, orderBy('name', 'asc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    return [];
+  }
 };
 
-/**
- * Get a single service by id
- */
 export const getServiceById = async (serviceId) => {
-  const serviceDoc = await getDoc(doc(db, COLLECTIONS.SERVICES, serviceId));
-  if (!serviceDoc.exists()) return null;
-  return { id: serviceDoc.id, ...serviceDoc.data() };
+  try {
+    const { doc, getDoc } = await ensure();
+    const snap = await getDoc(doc(db, COLLECTIONS.SERVICES, serviceId));
+    if (!snap.exists()) return null;
+    return { id: snap.id, ...snap.data() };
+  } catch (e) {
+    return null;
+  }
 };
 
-/**
- * Create a new service (admin only)
- */
 export const createService = async ({ name, price, durationMinutes, description = '' }) => {
-  const docRef = await addDoc(servicesCollection, {
+  const { collection, addDoc, serverTimestamp } = await ensure();
+  const colRef = collection(db, COLLECTIONS.SERVICES);
+  const docRef = await addDoc(colRef, {
     name,
     price: Number(price),
     durationMinutes: Number(durationMinutes),
@@ -73,10 +65,8 @@ export const createService = async ({ name, price, durationMinutes, description 
   return docRef.id;
 };
 
-/**
- * Update a service (admin only)
- */
 export const updateService = async (serviceId, updates) => {
+  const { doc, updateDoc, serverTimestamp } = await ensure();
   const docRef = doc(db, COLLECTIONS.SERVICES, serviceId);
   await updateDoc(docRef, {
     ...updates,
@@ -84,10 +74,8 @@ export const updateService = async (serviceId, updates) => {
   });
 };
 
-/**
- * Delete a service (admin only - soft delete by setting active=false)
- */
 export const deleteService = async (serviceId) => {
+  const { doc, deleteDoc } = await ensure();
   const docRef = doc(db, COLLECTIONS.SERVICES, serviceId);
   await deleteDoc(docRef);
 };

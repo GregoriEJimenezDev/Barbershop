@@ -7,7 +7,7 @@ const AuthContext = createContext(null);
 /**
  * AuthProvider
  * Centralizes authentication state and user profile (including role).
- * Exposes helpers: signIn, signUp, signInWithGoogle, signOut, refreshProfile.
+ * Tolerates unconfigured Firebase by rendering as logged-out.
  */
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -25,7 +25,6 @@ export const AuthProvider = ({ children }) => {
       setProfile(p);
       return p;
     } catch (e) {
-      // Don't break the app if profile fetch fails (e.g. unconfigured Firebase)
       setProfile(null);
       return null;
     }
@@ -34,7 +33,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let unsubscribe = () => {};
     try {
-      unsubscribe = subscribeToAuthChanges(async (firebaseUser) => {
+      const result = subscribeToAuthChanges(async (firebaseUser) => {
         try {
           setUser(firebaseUser);
           if (firebaseUser) {
@@ -48,12 +47,17 @@ export const AuthProvider = ({ children }) => {
           setLoading(false);
         }
       });
+      if (typeof result === 'function') {
+        unsubscribe = result;
+      }
     } catch (e) {
-      // Firebase not properly configured - render as logged out
       setLoading(false);
       setError(e);
     }
+    // Safety timeout: never stay loading forever
+    const timeout = setTimeout(() => setLoading(false), 2000);
     return () => {
+      clearTimeout(timeout);
       if (typeof unsubscribe === 'function') unsubscribe();
     };
   }, [refreshProfile]);
