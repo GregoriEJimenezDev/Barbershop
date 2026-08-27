@@ -6,7 +6,8 @@
   "description": "Aplicación web de gestión de citas para peluquería/barbería",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/copy-dist-to-root.js",
+    "build:raw": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "build:functions": "cd functions && npm install && npm run build",
