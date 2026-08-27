@@ -1,5 +1,4 @@
 node_modules
-dist
 dist-ssr
 *.local
 .env
@@ -24,3 +23,5 @@ coverage
 vite.log
 vite-error.log
 *.log
+
+# dist/ is committed so GitHub Pages can serve it without a build step

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta name="theme-color" content="#1a1a1a" />
+    <meta name="description" content="Barbería - Reserva tu cita de forma rápida y fácil. Cortes profesionales para caballeros." />
+    <title>Barbería Premium | Reserva tu cita</title>
+    <script>
+      // Capture ALL errors and show them on screen so we can diagnose
+      // any deployment / runtime issue directly in the browser.
+      window.__showError = function(label, err) {
+        try {
+          var pre = document.getElementById('__diag');
+          if (!pre) {
+            pre = document.createElement('pre');
+            pre.id = '__diag';
+            pre.style.cssText = 'position:fixed;top:0;left:0;right:0;max-height:50vh;overflow:auto;background:#7f1d1d;color:#fff;padding:16px;font:12px/1.4 monospace;z-index:99999;white-space:pre-wrap;border-bottom:4px solid #ef4444';
+            document.body && document.body.appendChild(pre);
+          }
+          var msg = (err && (err.stack || err.message)) || String(err);
+          pre.textContent = '[' + label + '] ' + msg + '\n\n' + pre.textContent;
+        } catch (e) {}
+      };
+      window.addEventListener('error', function(e) {
+        window.__showError('error', e.error || e.message);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        window.__showError('promise', e.reason);
+      });
+      var oe = window.console.error;
+      window.console.error = function() {
+        window.__showError('console.error', Array.from(arguments).map(String).join(' '));
+        oe.apply(window.console, arguments);
+      };
+    </script>
+    <script type="module" crossorigin src="./assets/index-kRlW-IDH.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/three-vendor-DqeMVbNG.js">
+    <link rel="modulepreload" crossorigin href="./assets/firebase-vendor-4qyS6PJ-.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-aAPeh1sU.css">
+  </head>
+  <body>
+    <noscript>Necesitas habilitar JavaScript para usar esta aplicación.</noscript>
+    <div id="root"></div>
+  </body>
+</html>
