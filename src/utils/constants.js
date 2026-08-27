@@ -4,8 +4,15 @@
  */
 
 export const ROLES = {
-  ADMIN: 'admin',
+  SUPERADMIN: 'superadmin',
+  BARBER: 'barber',
   CLIENT: 'client'
+};
+
+export const ROLE_LABELS = {
+  superadmin: 'Dueño',
+  barber: 'Barbero',
+  client: 'Cliente'
 };
 
 export const APPOINTMENT_STATUS = {
@@ -39,10 +46,17 @@ export const EMERGENCY_FEE = 50;
 
 export const COLLECTIONS = {
   USERS: 'users',
+  BARBERS: 'barbers',
   SERVICES: 'services',
   AVAILABILITY: 'availability',
   APPOINTMENTS: 'appointments',
+  REVIEWS: 'reviews',
   NOTIFICATIONS: 'notifications'
+};
+
+export const STORAGE_PATHS = {
+  BARBER_PHOTOS: 'barbers/photos',
+  REVIEW_PHOTOS: 'reviews/photos'
 };
 
 export const CLOUD_FUNCTIONS = {
@@ -55,5 +69,9 @@ export const CLOUD_FUNCTIONS = {
   DELETE_SERVICE: 'deleteService',
   SET_AVAILABILITY: 'setAvailability',
   BLOCK_DAY: 'blockDay',
-  SET_USER_ROLE: 'setUserRole'
+  SET_USER_ROLE: 'setUserRole',
+  CREATE_BARBER: 'createBarber',
+  UPDATE_BARBER: 'updateBarber',
+  DEACTIVATE_BARBER: 'deactivateBarber',
+  CREATE_REVIEW: 'createReview'
 };

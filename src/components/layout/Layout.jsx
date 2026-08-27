@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { ROLES } from '../../utils/constants';
 
 const Layout = () => {
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, isSuperAdmin, isBarber, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -28,25 +27,26 @@ const Layout = () => {
           </Link>
 
           <nav className="nav">
-            <Link
-              to="/"
-              className={`nav-link ${isActive('/') ? 'active' : ''}`}
-            >
+            <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`}>
               Inicio
             </Link>
-            {user && isAdmin && (
-              <Link
-                to="/admin"
-                className={`nav-link ${isActive('/admin') ? 'active' : ''}`}
-              >
-                Panel
+            {user && isSuperAdmin && (
+              <>
+                <Link to="/admin" className={`nav-link ${isActive('/admin') ? 'active' : ''}`}>
+                  Panel
+                </Link>
+                <Link to="/admin/barberos" className={`nav-link ${isActive('/admin/barberos') ? 'active' : ''}`}>
+                  Barberos
+                </Link>
+              </>
+            )}
+            {user && isBarber && (
+              <Link to="/barbero" className={`nav-link ${isActive('/barbero') ? 'active' : ''}`}>
+                Mi panel
               </Link>
             )}
-            {user && !isAdmin && (
-              <Link
-                to="/cliente"
-                className={`nav-link ${isActive('/cliente') ? 'active' : ''}`}
-              >
+            {user && !isSuperAdmin && !isBarber && (
+              <Link to="/cliente" className={`nav-link ${isActive('/cliente') ? 'active' : ''}`}>
                 Mi cuenta
               </Link>
             )}
@@ -86,31 +86,26 @@ const Layout = () => {
 
         {mobileOpen && (
           <div className="mobile-nav">
-            <Link to="/" className="nav-link" onClick={closeMobile}>
-              Inicio
-            </Link>
-            {user && isAdmin && (
-              <Link to="/admin" className="nav-link" onClick={closeMobile}>
-                Panel
-              </Link>
+            <Link to="/" className="nav-link" onClick={closeMobile}>Inicio</Link>
+            {user && isSuperAdmin && (
+              <>
+                <Link to="/admin" className="nav-link" onClick={closeMobile}>Panel</Link>
+                <Link to="/admin/barberos" className="nav-link" onClick={closeMobile}>Barberos</Link>
+              </>
             )}
-            {user && !isAdmin && (
-              <Link to="/cliente" className="nav-link" onClick={closeMobile}>
-                Mi cuenta
-              </Link>
+            {user && isBarber && (
+              <Link to="/barbero" className="nav-link" onClick={closeMobile}>Mi panel</Link>
+            )}
+            {user && !isSuperAdmin && !isBarber && (
+              <Link to="/cliente" className="nav-link" onClick={closeMobile}>Mi cuenta</Link>
             )}
             {user ? (
-              <button
-                onClick={handleSignOut}
-                className="btn btn-secondary btn-block"
-              >
+              <button onClick={handleSignOut} className="btn btn-secondary btn-block">
                 Cerrar sesión
               </button>
             ) : (
               <>
-                <Link to="/login" className="nav-link" onClick={closeMobile}>
-                  Entrar
-                </Link>
+                <Link to="/login" className="nav-link" onClick={closeMobile}>Entrar</Link>
                 <Link
                   to="/register"
                   className="btn btn-primary btn-block"
@@ -132,9 +127,7 @@ const Layout = () => {
       <footer className="app-footer">
         <div className="container app-footer__inner">
           <div>
-            <strong style={{ color: 'var(--color-text-primary)' }}>
-              Barbería Premium
-            </strong>
+            <strong style={{ color: 'var(--color-text-primary)' }}>Barbería Premium</strong>
             <p>Estilo, tradición y precisión desde 2010</p>
           </div>
           <div>

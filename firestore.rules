@@ -11,26 +11,33 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
     function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return getUserData().role;
     }
 
-    function isAdmin() {
-      return isSignedIn() && getUserRole() == 'admin';
+    function isSuperAdmin() {
+      return isSignedIn() && getUserRole() == 'superadmin';
     }
 
-    function isClient() {
-      return isSignedIn() && getUserRole() == 'client';
+    function isBarber() {
+      return isSignedIn() && getUserRole() == 'barber';
+    }
+
+    function isAdminOrBarber() {
+      return isSuperAdmin() || isBarber();
     }
 
     // ============ USERS COLLECTION ============
     match /users/{userId} {
-      // A user can read their own profile
-      // Admins can read any user
-      allow read: if isOwner(userId) || isAdmin();
+      // Own profile, superadmin, or same-role peers can read
+      allow read: if isOwner(userId) || isSuperAdmin();
 
-      // A user can create their own document (during registration)
-      // Role MUST default to 'client' - cannot self-assign admin
+      // A user can create their own document during registration
+      // Role MUST default to 'client'
       allow create: if isOwner(userId)
         && request.resource.data.role == 'client'
         && request.resource.data.email is string
@@ -39,25 +46,39 @@ service cloud.firestore {
       // A user can update their own profile BUT cannot change role
       allow update: if isOwner(userId)
         && request.resource.data.role == resource.data.role
-        && (isAdmin() || (
-          request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['name', 'phone', 'updatedAt'])
-        ));
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['name', 'phone', 'photoURL', 'updatedAt']);
 
-      // Only admins can delete users
-      allow delete: if isAdmin();
+      // Only superadmin can delete users
+      allow delete: if isSuperAdmin();
     }
 
-    // ============ SERVICES COLLECTION (Price Board) ============
-    match /services/{serviceId} {
-      // Anyone (even unauthenticated) can read services for the public price board
+    // ============ BARBERS COLLECTION ============
+    // Public read for the customer-facing barbers list and profiles
+    match /barbers/{barberId} {
       allow read: if true;
 
-      // Only admins can create, update, or delete services
-      allow create, update, delete: if isAdmin();
+      // Only superadmin can create barbers (via Cloud Function)
+      allow create: if isSuperAdmin();
 
-      // Validate service structure
-      allow write: if isAdmin()
+      // Superadmin can update any barber's fields
+      // The barber themselves can update only their own profile fields
+      allow update: if isSuperAdmin() ||
+        (isBarber() && request.auth.uid == barberId &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['name', 'phone', 'photoURL', 'bio', 'specialties', 'yearsOfExperience', 'updatedAt']));
+
+      // Only superadmin can delete barbers
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============ SERVICES COLLECTION ============
+    match /services/{serviceId} {
+      allow read: if true;
+
+      allow create, update, delete: if isSuperAdmin();
+
+      allow write: if isSuperAdmin()
         && request.resource.data.name is string
         && request.resource.data.price is number
         && request.resource.data.price > 0
@@ -66,37 +87,28 @@ service cloud.firestore {
     }
 
     // ============ AVAILABILITY COLLECTION ============
-    match /availability/{dateId} {
-      // Anyone can read availability (for booking flow)
+    // Doc id format: {barberId}_{YYYY-MM-DD}
+    match /availability/{availabilityId} {
       allow read: if true;
 
-      // Only admins can create, update, or delete availability
-      allow create, update, delete: if isAdmin();
-
-      // Validate availability structure
-      allow write: if isAdmin()
-        && request.resource.data.date is string
-        && request.resource.data.maxAppointments is number
-        && request.resource.data.maxAppointments >= 0
-        && request.resource.data.timeSlots is list
-        && request.resource.data.blocked == false ||
-           request.resource.data.blocked == true;
+      // Superadmin OR the assigned barber can write
+      allow create, update, delete: if isSuperAdmin() ||
+        (isBarber() && (resource == null || resource.data.barberId == request.auth.uid));
     }
 
     // ============ APPOINTMENTS COLLECTION ============
     match /appointments/{appointmentId} {
       // Clients can read their own appointments
-      // Admins can read all appointments
-      allow read: if isAdmin() || (isSignedIn() && resource.data.clientId == request.auth.uid);
+      // Superadmin can read all
+      // Barbers can read only their own appointments
+      allow read: if isSuperAdmin() ||
+        (isSignedIn() && resource.data.clientId == request.auth.uid) ||
+        (isBarber() && resource.data.barberId == request.auth.uid);
 
-      // Client can create an appointment for themselves
-      // Critical validations:
-      // - Must be for themselves
-      // - Cannot self-assign approved status
-      // - Emergency fee MUST be 50 if isEmergency=true
-      // - Emergency fee MUST be 0 if isEmergency=false
-      allow create: if isClient()
+      // Client creates appointment for themselves
+      allow create: if isSignedIn() && getUserRole() == 'client'
         && request.resource.data.clientId == request.auth.uid
+        && request.resource.data.barberId is string
         && request.resource.data.status == 'pendiente'
         && request.resource.data.isEmergency is bool
         && (request.resource.data.isEmergency == true
@@ -106,38 +118,50 @@ service cloud.firestore {
         && request.resource.data.time is string
         && request.resource.data.serviceId is string;
 
-      // Only admins can update appointments (accept/reject/reschedule/complete)
-      allow update: if isAdmin();
+      // Superadmin or assigned barber can update status fields
+      allow update: if isSuperAdmin() ||
+        (isBarber() && resource.data.barberId == request.auth.uid &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['status', 'updatedAt', 'aceptadaAt', 'rechazadaAt',
+                     'completadaAt', 'reprogramadaAt', 'previousDate',
+                     'previousTime', 'rescheduledBy', 'rescheduledAt',
+                     'date', 'time']));
 
-      // Clients can cancel their own appointments while pending or accepted
-      allow update: if isClient()
+      // Clients can cancel their own appointments
+      allow update: if isSignedIn()
         && resource.data.clientId == request.auth.uid
         && resource.data.status in ['pendiente', 'aceptada']
         && request.resource.data.status == 'cancelada'
         && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['status', 'cancelledAt', 'updatedAt']);
 
-      // Only admins can delete appointments
-      allow delete: if isAdmin();
+      // Only superadmin can delete
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============ REVIEWS COLLECTION ============
+    match /reviews/{reviewId} {
+      // Public read for displaying barbers' ratings
+      allow read: if true;
+
+      // Reviews are created via Cloud Function (validates ownership)
+      allow create: if false;
+
+      // Reviews are immutable
+      allow update, delete: if isSuperAdmin();
     }
 
     // ============ NOTIFICATIONS COLLECTION ============
     match /notifications/{notificationId} {
-      // Users can read their own notifications
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-
-      // System (via Cloud Functions) or admin can create
-      allow create: if isAdmin() || request.auth.token.admin == true;
-
-      // Users can mark their own notifications as read
+      allow create: if request.auth.token.admin == true;
       allow update: if isSignedIn()
         && resource.data.userId == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['read', 'readAt']);
     }
 
-    // ============ DEFAULT RULE ============
-    // Deny everything else by default
+    // ============ DEFAULT ============
     match /{document=**} {
       allow read, write: if false;
     }

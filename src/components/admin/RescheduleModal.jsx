@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAsyncAction } from '../../hooks/useAsyncAction';
 import { useFirestoreSubscription } from '../../hooks/useFirestoreSubscription';
-import { rescheduleAppointment, subscribeToDateAppointments } from '../../services/appointments.service';
-import { getAvailabilityByDate } from '../../services/availability.service';
+import { rescheduleAppointment, subscribeToBarberDateAppointments } from '../../services/appointments.service';
+import { getAvailabilityByDate, subscribeToAvailability } from '../../services/availability.service';
 import Calendar from '../ui/Calendar';
 import TimeSlots from '../ui/TimeSlots';
 import Modal from '../ui/Modal';
@@ -11,15 +11,13 @@ import Alert from '../ui/Alert';
 import { toDateId, formatDate } from '../../utils/helpers';
 
 /**
- * RescheduleModal - Allows admin to move an appointment to a new date/time.
- * Revalidates availability before saving (server enforces too).
+ * RescheduleModal - Move an appointment to a new date/time WITH THE SAME BARBER.
  */
 const RescheduleModal = ({ isOpen, onClose, appointment }) => {
   const [newDate, setNewDate] = useState(null);
   const [newTime, setNewTime] = useState(null);
   const [newAvailability, setNewAvailability] = useState(null);
 
-  // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
       setNewDate(null);
@@ -28,26 +26,25 @@ const RescheduleModal = ({ isOpen, onClose, appointment }) => {
     }
   }, [isOpen, appointment]);
 
-  // Subscribe to appointments on the new date to compute occupied slots
+  // Subscribe to appointments on the new date for the same barber
   const { data: newDateAppointments } = useFirestoreSubscription(
-    (cb, err) => newDate
-      ? subscribeToDateAppointments(newDate, cb, err)
-      : (() => { cb([]); return () => {}; })(),
-    [newDate ? toDateId(newDate) : null]
+    (cb, err) => (newDate && appointment
+      ? subscribeToBarberDateAppointments(appointment.barberId, newDate, cb, err)
+      : (() => { cb([]); return () => {}; })()),
+    [appointment?.barberId, newDate ? toDateId(newDate) : null]
   );
 
-  // Get availability doc for the new date
+  // Subscribe to availability
+  const { data: liveAvailability } = useFirestoreSubscription(
+    (cb, err) => (newDate && appointment
+      ? subscribeToAvailability(appointment.barberId, newDate, cb, err)
+      : (() => { cb(null); return () => {}; })()),
+    [appointment?.barberId, newDate ? toDateId(newDate) : null]
+  );
+
   useEffect(() => {
-    if (!newDate) {
-      setNewAvailability(null);
-      return;
-    }
-    let active = true;
-    getAvailabilityByDate(newDate).then((av) => {
-      if (active) setNewAvailability(av);
-    });
-    return () => { active = false; };
-  }, [newDate]);
+    setNewAvailability(liveAvailability);
+  }, [liveAvailability]);
 
   const occupiedSlots = (() => {
     if (!newDateAppointments) return new Set();
@@ -100,6 +97,10 @@ const RescheduleModal = ({ isOpen, onClose, appointment }) => {
           <strong>{appointment.serviceName}</strong>
         </div>
         <div className="booking-summary__row">
+          <span>Barbero</span>
+          <strong>{appointment.barberName}</strong>
+        </div>
+        <div className="booking-summary__row">
           <span>Fecha actual</span>
           <strong>{formatDate(appointment.date)} — {appointment.time}</strong>
         </div>
@@ -114,9 +115,9 @@ const RescheduleModal = ({ isOpen, onClose, appointment }) => {
         <div className="field">
           <label>Nueva hora</label>
           {newAvailability?.blocked ? (
-            <Alert type="warning">Este día está bloqueado.</Alert>
+            <Alert type="warning">El barbero no atiende este día.</Alert>
           ) : slots.length === 0 ? (
-            <Alert type="info">No hay horarios configurados para este día.</Alert>
+            <Alert type="info">Este barbero no tiene horarios configurados para este día.</Alert>
           ) : (
             <TimeSlots
               slots={slots}

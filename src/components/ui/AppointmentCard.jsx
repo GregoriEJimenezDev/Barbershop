@@ -4,18 +4,27 @@ import { APPOINTMENT_STATUS } from '../../utils/constants';
 
 /**
  * AppointmentCard - Reusable appointment display.
- * Used in both admin and client views.
+ * Used in superadmin, barber and client views.
  *
  * Props:
  * - appointment: object
- * - variant: 'admin' | 'client'
- * - onAccept, onReject, onReschedule, onComplete, onCancel
+ * - variant: 'admin' | 'barber' | 'client'
+ * - onAccept, onReject, onReschedule, onComplete, onCancel, onReview
  */
 const AppointmentCard = ({ appointment, variant = 'client', onAction }) => {
   const a = appointment;
   const canClientCancel =
     variant === 'client' &&
     [APPOINTMENT_STATUS.PENDIENTE, APPOINTMENT_STATUS.ACEPTADA].includes(a.status);
+
+  const canReview =
+    variant === 'client' &&
+    a.status === APPOINTMENT_STATUS.COMPLETADA &&
+    a.reviewed !== true;
+
+  const isStaffView = variant === 'admin' || variant === 'barber';
+  const showBarber = variant === 'client' && a.barberName;
+  const showClient = isStaffView && a.clientName;
 
   return (
     <div className="appointment-card">
@@ -29,7 +38,15 @@ const AppointmentCard = ({ appointment, variant = 'client', onAction }) => {
               </span>
             )}
           </h4>
-          {variant === 'admin' && a.clientName && (
+          {showBarber && (
+            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              {a.barberPhotoURL && (
+                <img src={a.barberPhotoURL} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }} />
+              )}
+              con <strong style={{ marginLeft: 4 }}>{a.barberName}</strong>
+            </p>
+          )}
+          {showClient && (
             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', marginTop: 4 }}>
               {a.clientName}
             </p>
@@ -75,7 +92,7 @@ const AppointmentCard = ({ appointment, variant = 'client', onAction }) => {
           )}
         </div>
         <div className="appointment-card__actions">
-          {variant === 'admin' && a.status === APPOINTMENT_STATUS.PENDIENTE && (
+          {isStaffView && a.status === APPOINTMENT_STATUS.PENDIENTE && (
             <>
               <button
                 onClick={() => onAction && onAction('accept', a)}
@@ -91,7 +108,7 @@ const AppointmentCard = ({ appointment, variant = 'client', onAction }) => {
               </button>
             </>
           )}
-          {variant === 'admin' && a.status === APPOINTMENT_STATUS.ACEPTADA && (
+          {isStaffView && a.status === APPOINTMENT_STATUS.ACEPTADA && (
             <>
               <button
                 onClick={() => onAction && onAction('reschedule', a)}
@@ -106,6 +123,14 @@ const AppointmentCard = ({ appointment, variant = 'client', onAction }) => {
                 Completar
               </button>
             </>
+          )}
+          {canReview && (
+            <button
+              onClick={() => onAction && onAction('review', a)}
+              className="btn btn-outline btn-sm"
+            >
+              ⭐ Calificar
+            </button>
           )}
           {canClientCancel && (
             <button

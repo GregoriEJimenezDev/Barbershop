@@ -54,7 +54,6 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
       setError(e);
     }
-    // Safety timeout: never stay loading forever
     const timeout = setTimeout(() => setLoading(false), 2000);
     return () => {
       clearTimeout(timeout);
@@ -78,8 +77,11 @@ export const AuthProvider = ({ children }) => {
     loading,
     error,
     isAuthenticated: Boolean(user),
-    isAdmin: profile?.role === ROLES.ADMIN,
+    isSuperAdmin: profile?.role === ROLES.SUPERADMIN,
+    isBarber: profile?.role === ROLES.BARBER,
     isClient: profile?.role === ROLES.CLIENT,
+    // Backward-compatible aliases
+    isAdmin: profile?.role === ROLES.SUPERADMIN,
     refreshProfile: () => (user ? refreshProfile(user.uid) : Promise.resolve(null)),
     signOut
   };

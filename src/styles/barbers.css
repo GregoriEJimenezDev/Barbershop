@@ -1,0 +1,247 @@
+/* ============ BARBER CARD ============ */
+.barbers-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .barbers-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .barbers-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.barber-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  transition: all var(--transition-base);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.barber-card:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.barber-card--selected {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-glow);
+  background: linear-gradient(135deg, var(--color-bg-card) 0%, rgba(201, 164, 92, 0.06) 100%);
+}
+
+.barber-card--inactive {
+  opacity: 0.65;
+}
+
+.barber-card__photo-wrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.barber-card__photo {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--color-primary);
+}
+
+.barber-card__photo--placeholder {
+  display: grid;
+  place-items: center;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: var(--font-weight-bold);
+}
+
+.barber-card__inactive-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.barber-card__body {
+  text-align: center;
+  flex: 1;
+}
+
+.barber-card__name {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  margin-bottom: var(--space-1);
+}
+
+.barber-card__experience {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+}
+
+.barber-card__bio {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  margin-bottom: var(--space-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.barber-card__specialties {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  justify-content: center;
+  margin-bottom: var(--space-3);
+}
+
+.barber-card__specialty {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+}
+
+.barber-card--selected .barber-card__specialty {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.barber-card__rating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.barber-card__stars {
+  display: flex;
+  gap: 2px;
+  font-size: var(--text-base);
+}
+
+.barber-card__rating-text {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.barber-card__actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+/* ============ SPECIALTY CHIPS ============ */
+.specialty-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.specialty-chip {
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.specialty-chip:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.specialty-chip--selected {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ============ PHOTO UPLOAD ============ */
+.barber-photo-upload {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 2px dashed var(--color-border-strong);
+  cursor: pointer;
+  overflow: hidden;
+  transition: all var(--transition-fast);
+  margin: 0 auto;
+}
+
+.barber-photo-upload:hover {
+  border-color: var(--color-primary);
+}
+
+.barber-photo-upload img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.barber-photo-upload__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  gap: var(--space-1);
+  background: var(--color-bg-elevated);
+}
+
+/* ============ REVIEW STARS ============ */
+.review-stars {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.review-star {
+  background: none;
+  border: none;
+  font-size: 2.5rem;
+  cursor: pointer;
+  color: var(--color-border-strong);
+  transition: color var(--transition-fast);
+  padding: 0 var(--space-1);
+  line-height: 1;
+}
+
+.review-star:hover,
+.review-star:hover ~ .review-star {
+  color: var(--color-primary);
+}
+
+/* ============ BADGE warning ============ */
+.btn-warning {
+  background: var(--color-warning);
+  color: var(--color-text-inverse);
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #d97706;
+}

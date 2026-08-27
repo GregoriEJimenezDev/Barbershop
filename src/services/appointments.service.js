@@ -16,11 +16,12 @@ const ensureFunctions = async () => {
   return await import('firebase/functions');
 };
 
-export const createAppointment = async ({ serviceId, date, time, isEmergency = false }) => {
+export const createAppointment = async ({ serviceId, barberId, date, time, isEmergency = false }) => {
   const { httpsCallable } = await ensureFunctions();
   const fn = httpsCallable(functions, 'createAppointment');
   const result = await fn({
     serviceId,
+    barberId,
     date: toDateId(date),
     time,
     isEmergency
@@ -103,6 +104,54 @@ export const subscribeToRangeAppointments = async (startDate, endDate, callback,
       where('date', '>=', start),
       where('date', '<=', end),
       orderBy('date', 'asc')
+    );
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        callback(items);
+      },
+      onError
+    );
+  } catch (e) {
+    if (onError) onError(e);
+    return () => {};
+  }
+};
+
+export const subscribeToBarberAppointments = async (barberId, callback, onError) => {
+  try {
+    const { collection, query, where, orderBy, onSnapshot } = await ensureFirestore();
+    const colRef = collection(db, COLLECTIONS.APPOINTMENTS);
+    const q = query(
+      colRef,
+      where('barberId', '==', barberId),
+      orderBy('date', 'asc')
+    );
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        callback(items);
+      },
+      onError
+    );
+  } catch (e) {
+    if (onError) onError(e);
+    return () => {};
+  }
+};
+
+export const subscribeToBarberDateAppointments = async (barberId, date, callback, onError) => {
+  try {
+    const { collection, query, where, orderBy, onSnapshot } = await ensureFirestore();
+    const dateId = toDateId(date);
+    const colRef = collection(db, COLLECTIONS.APPOINTMENTS);
+    const q = query(
+      colRef,
+      where('barberId', '==', barberId),
+      where('date', '==', dateId),
+      orderBy('time', 'asc')
     );
     return onSnapshot(
       q,

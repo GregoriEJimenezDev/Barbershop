@@ -7,16 +7,14 @@ import {
   subscribeToEmergencyQueue,
   updateAppointmentStatus
 } from '../services/appointments.service';
-import {
-  subscribeToServices,
-  deleteService
-} from '../services/services.service';
+import { subscribeToServices, deleteService } from '../services/services.service';
 import { subscribeToAllAvailability } from '../services/availability.service';
 import AppointmentCard from '../components/ui/AppointmentCard';
 import PriceBoard from '../components/ui/PriceBoard';
 import ServiceFormModal from '../components/admin/ServiceFormModal';
 import AvailabilityManager from '../components/admin/AvailabilityManager';
 import RescheduleModal from '../components/admin/RescheduleModal';
+import { Link } from 'react-router-dom';
 import Modal from '../components/ui/Modal';
 import Loader from '../components/ui/Loader';
 import Alert from '../components/ui/Alert';
@@ -35,50 +33,48 @@ const AdminDashboard = () => {
   const [tab, setTab] = useState('today');
   const today = useMemo(() => new Date(), []);
   const [serviceModal, setServiceModal] = useState({ open: false, service: null });
-  const [availModal, setAvailModal] = useState({ open: false, date: null, data: null });
+  const [availModal, setAvailModal] = useState({ open: false, date: null, data: null, barberId: null });
   const [rescheduleModal, setRescheduleModal] = useState({ open: false, appointment: null });
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const [toast, setToast] = useState(null);
 
-  // Today's appointments
   const { data: todayAppointments, loading: loadingToday } = useFirestoreSubscription(
     (cb, err) => subscribeToDateAppointments(today, cb, err),
     [toDateId(today)]
   );
 
-  // Emergency queue
   const { data: emergencyQueue } = useFirestoreSubscription(
     (cb, err) => subscribeToEmergencyQueue(cb, err),
     []
   );
 
-  // Services
   const { data: services, loading: loadingServices } = useFirestoreSubscription(
     (cb, err) => subscribeToServices(cb, err),
     []
   );
 
-  // All availability (for the calendar view)
   const { data: allAvailability } = useFirestoreSubscription(
     (cb, err) => subscribeToAllAvailability(cb, err),
     []
   );
 
-  // Build maps for the calendar
-  const blockedDatesSet = useMemo(() => {
-    const s = new Set();
-    (allAvailability || []).forEach((a) => { if (a.blocked) s.add(a.id); });
-    return s;
-  }, [allAvailability]);
+  const { run: handleStatusUpdate, loading: updating } = useAsyncAction(
+    async ({ appointmentId, status }) => {
+      await updateAppointmentStatus({ appointmentId, status });
+      setConfirmAction(null);
+      setToast({ type: 'success', text: 'Cita actualizada.' });
+    }
+  );
 
-  const maxAppointmentsMap = useMemo(() => {
-    const m = new Map();
-    (allAvailability || []).forEach((a) => m.set(a.id, a.maxAppointments || 0));
-    return m;
-  }, [allAvailability]);
+  const { run: handleDeleteService, loading: deleting } = useAsyncAction(
+    async (serviceId) => {
+      await deleteService(serviceId);
+      setConfirmDelete(null);
+      setToast({ type: 'success', text: 'Servicio eliminado.' });
+    }
+  );
 
-  // Stats
   const stats = useMemo(() => {
     const all = todayAppointments || [];
     return {
@@ -89,24 +85,6 @@ const AdminDashboard = () => {
     };
   }, [todayAppointments]);
 
-  // Status update
-  const { run: handleStatusUpdate, loading: updating } = useAsyncAction(
-    async ({ appointmentId, status }) => {
-      await updateAppointmentStatus({ appointmentId, status });
-      setConfirmAction(null);
-      setToast({ type: 'success', text: 'Cita actualizada.' });
-    }
-  );
-
-  // Delete service
-  const { run: handleDeleteService, loading: deleting } = useAsyncAction(
-    async (serviceId) => {
-      await deleteService(serviceId);
-      setConfirmDelete(null);
-      setToast({ type: 'success', text: 'Servicio eliminado.' });
-    }
-  );
-
   const onAction = (actionType, appointment) => {
     if (actionType === 'reschedule') {
       setRescheduleModal({ open: true, appointment });
@@ -116,16 +94,18 @@ const AdminDashboard = () => {
       setConfirmAction({ type: 'reject', appointment });
     } else if (actionType === 'complete') {
       handleStatusUpdate({ appointmentId: appointment.id, status: APPOINTMENT_STATUS.COMPLETADA });
-    } else if (actionType === 'cancel') {
-      setConfirmAction({ type: 'cancel', appointment });
     }
   };
 
-  const onAvailDayClick = (date) => {
-    const dateId = toDateId(date);
-    const existing = (allAvailability || []).find((a) => a.id === dateId) || null;
-    setAvailModal({ open: true, date, data: existing });
-  };
+  // Group appointments by barber
+  const byBarber = useMemo(() => {
+    const groups = new Map();
+    (todayAppointments || []).forEach((a) => {
+      if (!groups.has(a.barberId)) groups.set(a.barberId, []);
+      groups.get(a.barberId).push(a);
+    });
+    return groups;
+  }, [todayAppointments]);
 
   return (
     <div className="page">
@@ -133,21 +113,21 @@ const AdminDashboard = () => {
         <div className="page-header">
           <div>
             <h1 className="page-title">Panel de administración</h1>
-            <p className="page-subtitle">
-              Bienvenido, {profile?.name}
-            </p>
+            <p className="page-subtitle">Bienvenido, {profile?.name}</p>
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <Link to="/admin/barberos" className="btn btn-secondary">
+              Gestionar barberos
+            </Link>
           </div>
         </div>
 
         {toast && (
           <div style={{ marginBottom: 'var(--space-4)' }}>
-            <Alert type={toast.type} onClose={() => setToast(null)}>
-              {toast.text}
-            </Alert>
+            <Alert type={toast.type} onClose={() => setToast(null)}>{toast.text}</Alert>
           </div>
         )}
 
-        {/* STATS */}
         <div className="dashboard-stats">
           <div className="stat-card">
             <div className="stat-card__label">Citas hoy</div>
@@ -191,7 +171,6 @@ const AdminDashboard = () => {
           ))}
         </div>
 
-        {/* TAB: TODAY */}
         {tab === 'today' && (
           <div>
             <h2 style={{ marginBottom: 'var(--space-4)' }}>
@@ -206,37 +185,21 @@ const AdminDashboard = () => {
                 <p>Las reservas del día aparecerán aquí.</p>
               </div>
             ) : (
-              <div className="appointments-list">
-                {todayAppointments.map((appt) => (
-                  <div key={appt.id} className="appointment-row">
-                    <div className="appointment-row__main">
-                      <div className="appointment-row__time">
-                        <span className="appointment-row__time-hour">{appt.time}</span>
-                        {appt.isEmergency && (
-                          <span className="appointment-row__time-emergency">⚡</span>
-                        )}
-                      </div>
-                      <div className="appointment-row__info">
-                        <h4>
-                          {appt.serviceName}
-                          {appt.isEmergency && (
-                            <span className="badge badge-warning" style={{ marginLeft: 'var(--space-2)' }}>
-                              +RD${EMERGENCY_FEE}
-                            </span>
-                          )}
-                        </h4>
-                        <p>{appt.clientName} · {appt.clientId.slice(0, 6)}...</p>
-                      </div>
-                    </div>
-                    <div className="appointment-row__price">
-                      RD${appt.totalPrice}
-                    </div>
-                    <div className="appointment-row__actions">
-                      <AppointmentCard
-                        appointment={appt}
-                        variant="admin"
-                        onAction={onAction}
-                      />
+              <div>
+                {Array.from(byBarber.entries()).map(([barberId, appts]) => (
+                  <div key={barberId} style={{ marginBottom: 'var(--space-6)' }}>
+                    <h3 style={{ marginBottom: 'var(--space-3)', fontSize: 'var(--text-base)', color: 'var(--color-primary)' }}>
+                      💈 {appts[0].barberName} ({appts.length})
+                    </h3>
+                    <div className="appointment-history">
+                      {appts.map((appt) => (
+                        <AppointmentCard
+                          key={appt.id}
+                          appointment={appt}
+                          variant="admin"
+                          onAction={onAction}
+                        />
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -245,12 +208,9 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* TAB: EMERGENCY */}
         {tab === 'emergency' && (
           <div>
-            <h2 style={{ marginBottom: 'var(--space-4)' }}>
-              Cola de emergencias
-            </h2>
+            <h2 style={{ marginBottom: 'var(--space-4)' }}>Cola de emergencias</h2>
             <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)' }}>
               Citas con recargo de RD${EMERGENCY_FEE}. Requiere tu aprobación explícita.
             </p>
@@ -258,7 +218,6 @@ const AdminDashboard = () => {
               <div className="empty-state">
                 <div className="empty-state__icon">⚡</div>
                 <p className="empty-state__title">Sin emergencias pendientes</p>
-                <p>Las solicitudes urgentes aparecerán aquí.</p>
               </div>
             ) : (
               <div className="appointment-history">
@@ -275,7 +234,6 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* TAB: SERVICES */}
         {tab === 'services' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
@@ -300,25 +258,47 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* TAB: AVAILABILITY */}
         {tab === 'availability' && (
           <div>
-            <h2 style={{ marginBottom: 'var(--space-4)' }}>Calendario de disponibilidad</h2>
+            <h2 style={{ marginBottom: 'var(--space-4)' }}>Calendario global</h2>
             <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)' }}>
-              Haz clic en cualquier día para configurar su disponibilidad o bloquearlo.
+              Vista general de disponibilidad configurada. Para editar la de un barbero, ve a su perfil.
             </p>
-            <div style={{ maxWidth: 500 }}>
-              <Calendar
-                value={null}
-                onChange={onAvailDayClick}
-                blockedDates={blockedDatesSet}
-              />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--space-4)' }}>
+              {Object.entries(
+                (allAvailability || []).reduce((acc, a) => {
+                  if (!acc[a.date]) acc[a.date] = [];
+                  acc[a.date].push(a);
+                  return acc;
+                }, {})
+              )
+                .sort(([a], [b]) => a.localeCompare(b))
+                .slice(0, 14)
+                .map(([date, avs]) => (
+                  <div key={date} className="card">
+                    <h4 style={{ marginBottom: 'var(--space-3)', textTransform: 'capitalize' }}>
+                      {formatDate(date, { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </h4>
+                    {avs.map((av) => (
+                      <div key={av.id} style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-2) 0', borderTop: '1px solid var(--color-border)', fontSize: 'var(--text-sm)' }}>
+                        <span>{av.barberName || av.barberId?.slice(0, 8)}</span>
+                        <span style={{ color: av.blocked ? 'var(--color-danger)' : 'var(--color-text-secondary)' }}>
+                          {av.blocked ? 'Bloqueado' : `${av.timeSlots?.length || 0} horarios`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              {(allAvailability || []).length === 0 && (
+                <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+                  <p>Aún no se ha configurado disponibilidad.</p>
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
 
-      {/* MODALS */}
       <ServiceFormModal
         isOpen={serviceModal.open}
         onClose={() => setServiceModal({ open: false, service: null })}
@@ -327,9 +307,10 @@ const AdminDashboard = () => {
 
       <AvailabilityManager
         isOpen={availModal.open}
-        onClose={() => setAvailModal({ open: false, date: null, data: null })}
+        onClose={() => setAvailModal({ open: false, date: null, data: null, barberId: null })}
         initialDate={availModal.date}
         existingAvailability={availModal.data}
+        barberIdOverride={availModal.barberId}
       />
 
       <RescheduleModal
@@ -338,25 +319,16 @@ const AdminDashboard = () => {
         appointment={rescheduleModal.appointment}
       />
 
-      {/* CONFIRM DELETE SERVICE */}
       <Modal
         isOpen={!!confirmDelete}
         onClose={() => !deleting && setConfirmDelete(null)}
         title="¿Eliminar servicio?"
         footer={
           <>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setConfirmDelete(null)}
-              disabled={deleting}
-            >
+            <button className="btn btn-secondary" onClick={() => setConfirmDelete(null)} disabled={deleting}>
               Cancelar
             </button>
-            <button
-              className="btn btn-danger"
-              onClick={() => handleDeleteService(confirmDelete.id)}
-              disabled={deleting}
-            >
+            <button className="btn btn-danger" onClick={() => handleDeleteService(confirmDelete.id)} disabled={deleting}>
               {deleting ? <Loader size="sm" /> : 'Eliminar'}
             </button>
           </>
@@ -368,18 +340,13 @@ const AdminDashboard = () => {
         </p>
       </Modal>
 
-      {/* CONFIRM REJECT APPOINTMENT */}
       <Modal
         isOpen={!!confirmAction && confirmAction.type === 'reject'}
         onClose={() => !updating && setConfirmAction(null)}
         title="¿Rechazar cita?"
         footer={
           <>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setConfirmAction(null)}
-              disabled={updating}
-            >
+            <button className="btn btn-secondary" onClick={() => setConfirmAction(null)} disabled={updating}>
               No, mantener
             </button>
             <button
@@ -395,10 +362,7 @@ const AdminDashboard = () => {
           </>
         }
       >
-        <p>Vas a rechazar la cita de <strong>{confirmAction?.appointment?.clientName}</strong>.</p>
-        <p style={{ marginTop: 'var(--space-3)', color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>
-          El cliente será notificado.
-        </p>
+        <p>Vas a rechazar la cita de <strong>{confirmAction?.appointment?.clientName}</strong> con <strong>{confirmAction?.appointment?.barberName}</strong>.</p>
       </Modal>
     </div>
   );

@@ -1,134 +1,154 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  setDoc,
-  updateDoc,
-  query,
-  where,
-  onSnapshot
-} from 'firebase/firestore';
-import { db } from './firebase.config';
 import { COLLECTIONS } from '../utils/constants';
-import { toDateId } from '../utils/helpers';
+import { db, isFirebaseConfigured } from './firebase.config';
 
-/**
- * Availability Service
- * Manages daily availability: time slots, max appointments, blocked days.
- * The document id is the date in YYYY-MM-DD format.
- */
-
-const availabilityCollection = collection(db, COLLECTIONS.AVAILABILITY);
-
-/**
- * Get availability for a specific date
- */
-export const getAvailabilityByDate = async (date) => {
-  const dateId = toDateId(date);
-  const docRef = doc(db, COLLECTIONS.AVAILABILITY, dateId);
-  const snap = await getDoc(docRef);
-  if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() };
+const ensure = async () => {
+  if (!isFirebaseConfigured || !db) {
+    throw new Error('Firebase no está configurado. Revisa tu archivo .env.');
+  }
+  return await import('firebase/firestore');
 };
 
-/**
- * Subscribe to availability for a specific date
- */
-export const subscribeToAvailability = (date, callback, onError) => {
-  const dateId = toDateId(date);
-  const docRef = doc(db, COLLECTIONS.AVAILABILITY, dateId);
-  return onSnapshot(
-    docRef,
-    (snap) => {
-      if (snap.exists()) {
-        callback({ id: snap.id, ...snap.data() });
-      } else {
-        callback(null);
-      }
-    },
-    onError
-  );
+const toDateString = (date) => {
+  const d = date instanceof Date ? date : new Date(date);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 };
 
-/**
- * Subscribe to all availability documents (admin calendar view)
- */
-export const subscribeToAllAvailability = (callback, onError) => {
-  return onSnapshot(
-    availabilityCollection,
-    (snapshot) => {
-      const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      callback(items);
-    },
-    onError
-  );
+const availabilityId = (barberId, date) => {
+  return `${barberId}_${toDateString(date)}`;
 };
 
-/**
- * Set / upsert availability for a specific date (admin only)
- * @param {Date|string} date
- * @param {{maxAppointments:number, timeSlots:string[]}} data
- */
-export const setAvailability = async (date, { maxAppointments, timeSlots, blocked = false }) => {
-  const dateId = toDateId(date);
-  const docRef = doc(db, COLLECTIONS.AVAILABILITY, dateId);
+export const getAvailabilityByDate = async (barberId, date) => {
+  try {
+    const { doc, getDoc } = await ensure();
+    const id = availabilityId(barberId, date);
+    const snap = await getDoc(doc(db, COLLECTIONS.AVAILABILITY, id));
+    if (!snap.exists()) return null;
+    return { id: snap.id, ...snap.data() };
+  } catch (e) {
+    return null;
+  }
+};
+
+export const subscribeToAvailability = async (barberId, date, callback, onError) => {
+  try {
+    const { doc, onSnapshot } = await ensure();
+    const id = availabilityId(barberId, date);
+    const docRef = doc(db, COLLECTIONS.AVAILABILITY, id);
+    return onSnapshot(
+      docRef,
+      (snap) => {
+        callback(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+      },
+      onError
+    );
+  } catch (e) {
+    if (onError) onError(e);
+    return () => {};
+  }
+};
+
+export const subscribeToBarberAvailability = async (barberId, callback, onError) => {
+  try {
+    const { collection, query, where, onSnapshot } = await ensure();
+    const colRef = collection(db, COLLECTIONS.AVAILABILITY);
+    const q = query(colRef, where('barberId', '==', barberId));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        callback(items);
+      },
+      onError
+    );
+  } catch (e) {
+    if (onError) onError(e);
+    return () => {};
+  }
+};
+
+export const setAvailability = async (barberId, date, { maxAppointments, timeSlots, blocked = false }) => {
+  const { doc, setDoc, serverTimestamp } = await ensure();
+  const dateStr = toDateString(date);
+  const docRef = doc(db, COLLECTIONS.AVAILABILITY, `${barberId}_${dateStr}`);
   await setDoc(
     docRef,
     {
-      date: dateId,
+      barberId,
+      date: dateStr,
       maxAppointments: Number(maxAppointments),
       timeSlots: timeSlots || [],
       blocked: Boolean(blocked),
-      updatedAt: new Date().toISOString()
+      updatedAt: serverTimestamp()
     },
     { merge: true }
   );
-  return dateId;
+  return docRef.id;
 };
 
-/**
- * Block a full day (admin only)
- */
-export const blockDay = async (date) => {
-  const dateId = toDateId(date);
-  const docRef = doc(db, COLLECTIONS.AVAILABILITY, dateId);
+export const blockDay = async (barberId, date) => {
+  const dateStr = toDateString(date);
+  const { doc, setDoc, serverTimestamp } = await ensure();
+  const docRef = doc(db, COLLECTIONS.AVAILABILITY, `${barberId}_${dateStr}`);
   await setDoc(
     docRef,
     {
-      date: dateId,
+      barberId,
+      date: dateStr,
       blocked: true,
       maxAppointments: 0,
       timeSlots: [],
-      updatedAt: new Date().toISOString()
+      updatedAt: serverTimestamp()
     },
     { merge: true }
   );
 };
 
-/**
- * Unblock a day (admin only)
- */
-export const unblockDay = async (date) => {
-  const dateId = toDateId(date);
-  const docRef = doc(db, COLLECTIONS.AVAILABILITY, dateId);
+export const unblockDay = async (barberId, date) => {
+  const dateStr = toDateString(date);
+  const { doc, updateDoc, serverTimestamp } = await ensure();
+  const docRef = doc(db, COLLECTIONS.AVAILABILITY, `${barberId}_${dateStr}`);
   await updateDoc(docRef, {
     blocked: false,
-    updatedAt: new Date().toISOString()
+    updatedAt: serverTimestamp()
   });
 };
 
-/**
- * Get all availability within a date range
- */
-export const getAvailabilityInRange = async (startDate, endDate) => {
-  const start = toDateId(startDate);
-  const end = toDateId(endDate);
-  const q = query(
-    availabilityCollection,
-    where('date', '>=', start),
-    where('date', '<=', end)
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+export const getAvailabilityInRange = async (barberId, startDate, endDate) => {
+  try {
+    const { collection, query, where, getDocs } = await ensure();
+    const start = toDateString(startDate);
+    const end = toDateString(endDate);
+    const colRef = collection(db, COLLECTIONS.AVAILABILITY);
+    const q = query(
+      colRef,
+      where('barberId', '==', barberId),
+      where('date', '>=', start),
+      where('date', '<=', end)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    return [];
+  }
+};
+
+export const subscribeToAllAvailability = async (callback, onError) => {
+  try {
+    const { collection, onSnapshot } = await ensure();
+    const colRef = collection(db, COLLECTIONS.AVAILABILITY);
+    return onSnapshot(
+      colRef,
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        callback(items);
+      },
+      onError
+    );
+  } catch (e) {
+    if (onError) onError(e);
+    return () => {};
+  }
 };

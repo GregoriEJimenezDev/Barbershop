@@ -8,10 +8,22 @@ import Alert from '../ui/Alert';
 import { toDateId, formatDate } from '../../utils/helpers';
 
 /**
- * AvailabilityManager - Configure slots and capacity for a specific date.
- * Used by AdminDashboard.
+ * AvailabilityManager - Configure slots and capacity for a specific barber on a specific date.
+ *
+ * Props:
+ * - isOpen, onClose
+ * - initialDate
+ * - existingAvailability
+ * - barberIdOverride: when set, uses this barber (used by BarberPanel for self-management)
+ *                when null, expects the user to have selected a barber beforehand
  */
-const AvailabilityManager = ({ isOpen, onClose, initialDate = null, existingAvailability = null }) => {
+const AvailabilityManager = ({
+  isOpen,
+  onClose,
+  initialDate = null,
+  existingAvailability = null,
+  barberIdOverride = null
+}) => {
   const [date, setDate] = useState(initialDate || new Date());
   const [maxAppointments, setMaxAppointments] = useState(8);
   const [timeSlotsText, setTimeSlotsText] = useState('09:00, 10:00, 11:00, 14:00, 15:00, 16:00');
@@ -31,6 +43,9 @@ const AvailabilityManager = ({ isOpen, onClose, initialDate = null, existingAvai
 
   const { run: handleSave, loading, errorMessage } = useAsyncAction(
     async () => {
+      if (!barberIdOverride) {
+        throw new Error('No se ha especificado un barbero.');
+      }
       const slots = timeSlotsText
         .split(',')
         .map((s) => s.trim())
@@ -40,7 +55,7 @@ const AvailabilityManager = ({ isOpen, onClose, initialDate = null, existingAvai
         throw new Error('Agrega al menos un horario o marca el día como bloqueado.');
       }
 
-      await setAvailability(date, {
+      await setAvailability(barberIdOverride, date, {
         maxAppointments: isBlocked ? 0 : Number(maxAppointments),
         timeSlots: isBlocked ? [] : slots,
         blocked: isBlocked
@@ -51,14 +66,14 @@ const AvailabilityManager = ({ isOpen, onClose, initialDate = null, existingAvai
 
   const { run: handleBlock, loading: blocking } = useAsyncAction(
     async () => {
-      await blockDay(date);
+      await blockDay(barberIdOverride, date);
       onClose();
     }
   );
 
   const { run: handleUnblock, loading: unblocking } = useAsyncAction(
     async () => {
-      await unblockDay(date);
+      await unblockDay(barberIdOverride, date);
       onClose();
     }
   );
@@ -67,7 +82,7 @@ const AvailabilityManager = ({ isOpen, onClose, initialDate = null, existingAvai
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Configurar disponibilidad — ${formatDate(date, { weekday: 'short', day: 'numeric', month: 'short' })}`}
+      title={`Disponibilidad — ${formatDate(date, { weekday: 'short', day: 'numeric', month: 'short' })}`}
     >
       {errorMessage && (
         <div style={{ marginBottom: 'var(--space-4)' }}>
