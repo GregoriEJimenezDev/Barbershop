@@ -6,6 +6,7 @@
   "description": "Aplicación web de gestión de citas para peluquería/barbería",
   "scripts": {
     "dev": "vite",
+    "dev:setup": "node scripts/restore-dev-html.js",
     "build": "vite build && node scripts/copy-dist-to-root.js",
     "build:raw": "vite build",
     "preview": "vite preview",
