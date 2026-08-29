@@ -10,7 +10,8 @@
     "build": "vite build && node scripts/copy-dist-to-root.js",
     "build:raw": "vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint . --ext js,jsx,ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "typecheck": "tsc --noEmit",
     "build:functions": "cd functions && npm install && npm run build",
     "deploy": "npm run build:functions && npm run build && firebase deploy",
     "deploy:hosting": "npm run build && firebase deploy --only hosting",
@@ -18,16 +19,17 @@
     "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes"
   },
   "dependencies": {
+    "@react-three/drei": "^9.114.0",
+    "@react-three/fiber": "^8.17.7",
+    "date-fns": "^3.6.0",
+    "firebase": "^10.13.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
-    "firebase": "^10.13.2",
-    "three": "^0.168.0",
-    "@react-three/fiber": "^8.17.7",
-    "@react-three/drei": "^9.114.0",
-    "date-fns": "^3.6.0"
+    "three": "^0.168.0"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@types/three": "^0.168.0",
@@ -36,6 +38,10 @@
     "eslint-plugin-react": "^7.36.1",
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.12",
+    "jest": "^30.5.0",
+    "jest-environment-jsdom": "^30.5.0",
+    "ts-jest": "^29.4.12",
+    "typescript": "^5.9.3",
     "vite": "^5.4.6"
   }
 }

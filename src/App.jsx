@@ -11,7 +11,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import Layout from './components/layout/Layout';
 import { ROLES } from './utils/constants';
 
-const ProtectedRoute = ({ children, requiredRole }) => {
+const ProtectedRoute = ({ children, requiredRole }: { children: React.ReactNode; requiredRole?: string }) => {
   const { isAuthenticated, isSuperAdmin, isBarber, loading } = useAuth();
 
   if (loading) {

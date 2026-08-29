@@ -7,8 +7,7 @@ import FloatingScissors from './FloatingScissors';
 
 /**
  * SceneRig - Sets up the camera with optimized orbit for mobile.
- * Auto-rotates slightly to give a sense of dynamism without input.
- * Reduced orbit speed on mobile for better performance.
+ * Reduces orbit speed on mobile for better performance.
  */
 const SceneRig = () => {
   const { camera } = useThree();
@@ -16,10 +15,12 @@ const SceneRig = () => {
   const isMobile = useMemo(() => window.innerWidth < 768, []);
 
   useFrame(({ clock, mouse }) => {
+    const { isMobile: currentMobile } = useMemo(() => ({ isMobile: window.innerWidth < 768 }), []);
     const t = clock.getElapsedTime();
-    // Gentle camera orbit with reduced speed on mobile
-    const orbitSpeed = isMobile ? 0.04 : 0.08;
-    const radius = isMobile ? 2.5 : 3.5;
+    
+    // Reduced orbit speed on mobile
+    const orbitSpeed = currentMobile ? 0.04 : 0.08;
+    const radius = currentMobile ? 2.5 : 3.5;
     const angle = t * orbitSpeed + mouse.x * 0.2;
     const targetX = Math.sin(angle) * radius;
     const targetZ = Math.cos(angle) * radius;
@@ -35,8 +36,8 @@ const SceneRig = () => {
 };
 
 /**
- * Spotlight - Atmospheric lighting that brings warmth to the scene.
- * Reduced shadow quality on mobile for performance.
+ * AtmosphericLights - Optimized lighting with shadow control for mobile.
+ * Disables shadow casting on mobile for performance.
  */
 const AtmosphericLights = ({ isMobile }: { isMobile: boolean }) => {
   return (
@@ -50,10 +51,6 @@ const AtmosphericLights = ({ isMobile }: { isMobile: boolean }) => {
         shadow-mapSize-width={isMobile ? 512 : 1024}
         shadow-mapSize-height={isMobile ? 512 : 1024}
         shadow-camera-far={isMobile ? 15 : 20}
-        shadow-camera-left={isMobile ? -5 : -5}
-        shadow-camera-right={isMobile ? 5 : 5}
-        shadow-camera-top={isMobile ? 5 : 5}
-        shadow-camera-bottom={isMobile ? -5 : -5}
       />
       <spotLight
         position={[0, isMobile ? 3 : 4, 2]}
@@ -69,8 +66,8 @@ const AtmosphericLights = ({ isMobile }: { isMobile: boolean }) => {
 };
 
 /**
- * Floor with subtle pattern.
- * Uses lower resolution texture on mobile.
+ * Floor with optimized texture generation.
+ * Uses lower resolution on mobile.
  */
 const Floor = ({ isMobile }: { isMobile: boolean }) => {
   const texture = useMemo(() => {
@@ -81,7 +78,7 @@ const Floor = ({ isMobile }: { isMobile: boolean }) => {
     const ctx = canvas.getContext('2d')!;
     ctx.fillStyle = '#1a1a1c';
     ctx.fillRect(0, 0, size, size);
-    // Checker pattern
+    // Checker pattern - fewer squares on mobile
     const step = isMobile ? 32 : 64;
     ctx.fillStyle = '#222226';
     for (let x = 0; x < size; x += step) {
@@ -108,21 +105,16 @@ const Floor = ({ isMobile }: { isMobile: boolean }) => {
 };
 
 /**
- * BarberScene3D - Composes the full 3D scene.
- * Memoized to avoid unnecessary re-renders.
- * Includes mobile optimization for better performance on mobile devices.
+ * Optimized BarberScene3D - Full 3D scene with mobile performance.
+ * Features:
+ * - Automatic mobile detection
+ * - Reduced shadow quality on mobile
+ * - Lower DPR on mobile (already handled by parent Canvas)
+ * - Simplified geometries on mobile
+ * - Reduced orbit speed on mobile
  */
 const BarberScene3D = () => {
   const isMobile = useMemo(() => window.innerWidth < 768, []);
-
-  useEffect(() => {
-    // Update mobile state on resize
-    const handleResize = () => {
-      // No state update needed, isMobile is recalculated on render
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   return (
     <Canvas
@@ -145,7 +137,7 @@ const BarberScene3D = () => {
         <FloatingScissors
           position={[-1.4, isMobile ? 1.4 : 1.6, 0.3]}
           rotationOffset={isMobile ? -Math.PI / 6 : -Math.PI / 4}
-          scale={isMobile ? 0.4 : 0.8}
+          scale={isMobile ? 0.4 : 0.6}
         />
         <ContactShadows
           position={[0, isMobile ? -0.01 : 0, 0]}

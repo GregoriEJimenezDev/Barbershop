@@ -173,24 +173,37 @@ firebase deploy --only hosting
 Por seguridad, los usuarios nuevos se registran como `client`. Para crear el
 primer admin hay dos opciones:
 
-### Opción A — Bootstrap automático
+### Opción A — Bootstrap automático (recomendado)
 
-1. Despliega las Cloud Functions.
-2. Regístrate normalmente en la app.
-3. Desde la consola de Firebase, abre **Cloud Functions** logs o usa el shell:
+1. Despliega las Cloud Functions (`npm run build:functions && firebase deploy --only functions`).
+2. Regístrate normalmente en la app con cualquier correo.
+3. Ejecuta la función `setUserRole` desde el emulador o la consola:
+
+**Opción A1 — Con Firebase Emulator (recomendado en desarrollo):**
 
 ```bash
+firebase emulators:start
+# En otra terminal:
 firebase functions:shell
-> setUserRole({ uid: 'TU_UID', role: 'admin' })
+> setUserRole({ uid: 'TU_UID', role: 'superadmin' })
 ```
 
-Como no hay admins aún, la función `setUserRole` se "auto-promueve" y
-te permite crear el primer admin.
+**Opción A2 — Con la API REST de Firebase Functions:**
+
+```bash
+curl -X POST -H "Authorization: Bearer $(firebase auth:token YOUR_UID)" \
+  https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/setUserRole \
+  -d '{"uid": "TU_UID", "role": "superadmin"}'
+```
+
+*Como no hay admins aún, la función `setUserRole` se "auto-promueve" y te
+permite crear el primer admin asignándote el rol de `superadmin`. Después
+puedes crear barberos y gestionar el panel de administración.*
 
 ### Opción B — Manualmente
 
 1. Ve a Firestore → colección `users/{uid}`.
-2. Edita el campo `role` a `"admin"`.
+2. Edita el campo `role` a `"superadmin"`.
 
 ## 🧠 Reglas de negocio implementadas
 
