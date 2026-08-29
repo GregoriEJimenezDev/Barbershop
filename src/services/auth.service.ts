@@ -91,6 +91,91 @@ export const signInWithGoogle = async () => {
   return user;
 };
 
+/**
+ * Sign in with phone number using Firebase Phone Auth.
+ * Sends a verification code to the user's phone via SMS.
+ *
+ * @param phone - Phone number in E.164 format (e.g., +15551234567)
+ * @param verificationCode - The 6-digit code received via SMS
+ */
+export const signInWithPhone = async (phone: string, verificationCode: string) => {
+  ensureFirebase();
+  const { signInWithPhoneNumber, RecaptchaVerifier } = await import('firebase/auth');
+
+  // RecaptchaVerifier is required for phone auth in browser environments
+  // It's automatically rendered in the UI by the frontend component
+  const actionCodeSettings = {
+    // URL you want to redirect back to after phone sign-in succeeds
+    url: window.location.origin,
+    // This must be true
+    handleCodeInApp: true
+  };
+
+  try {
+    const verificationId = await signInWithPhoneNumber(
+      auth,
+      phone,
+      actionCodeSettings,
+      recaptchaContainerId
+    );
+
+    // Sign in with the verification code
+    const userCredential = await signInWithPhoneNumber(auth, verificationCode, verificationId);
+    return userCredential.user;
+  } catch (e: any) {
+    throw new Error(e.message || 'Error en la verificación telefónica');
+  }
+};
+
+/**
+ * Initialize the RecaptchaVerifier for phone auth.
+ * This should be called on page load.
+ *
+ * @param containerId - DOM element ID where the reCAPTCHA will be rendered
+ * @returns The RecaptchaVerifier instance
+ */
+export const initPhoneAuthProvider = (containerId: string = 'recaptcha-container') => {
+  return new RecaptchaVerifier(containerId, {
+    'sitekey': '6LfI9n8UAAAAAPRhYM1Y_BestXWfongzB0vTlcon', // Reemplazar con el sitekey real
+    'callback': (response: string) => {
+      // Callback function when the user completes the reCAPTCHA
+    },
+    'expired-callback': () => {
+      // Callback function when the reCAPTCHA session expires
+    }
+  }, (err) => {
+    // expiring the callback
+  });
+};
+
+/**
+ * Register a new client with phone number (verification via SMS)
+ * This is useful for clients who don't have email or prefer phone registration
+ */
+export const registerWithPhone = async (phone: string, verificationCode: string, name: string) => {
+  ensureFirebase();
+  const { createUserWithEmailAndPassword } = await import('firebase/auth');
+
+  // First sign in with the verification code
+  const userCredential = await signInWithPhone(phone, verificationCode);
+  const { user } = userCredential;
+
+  // Update profile with display name
+  await user.updateProfile({ displayName: name });
+
+  // Create user profile in Firestore
+  await setDoc(doc(db, COLLECTIONS.USERS, user.uid), {
+    uid: user.uid,
+    name,
+    phone,
+    role: ROLES.CLIENT,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  });
+
+  return user;
+};
+
 export const signOut = async () => {
   if (!auth) return;
   const { signOut: fbSignOut } = await import('firebase/auth');

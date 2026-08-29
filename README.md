@@ -9,8 +9,12 @@ recargo de **RD$50** y requieren aprobación manual del barbero.
 
 - **Landing page** con escena 3D interactiva (Three.js / React Three Fiber)
   de la silla de barbero y tijeras flotantes animadas.
-- **Sistema de autenticación** con Firebase Auth (email/password y Google).
+- **Sistema de autenticación** con Firebase Auth (email/password, Google y teléfono).
 - **Dos roles**: `admin` (barbero) y `client`.
+- **Registro con número de WhatsApp**: Los clientes pueden registrarse usando
+  solo su número de teléfono (incluyendo números de WhatsApp), recibiendo un
+  código de verificación por SMS para iniciar sesión.
+- **Cartelera de precios** dinámica y editable.
 - **Cartelera de precios** dinámica y editable.
 - **Agenda de citas** con control de cupos por día, validación en backend.
 - **Citas de emergencia** con recargo automático de RD$50.
@@ -28,7 +32,7 @@ recargo de **RD$50** y requieren aprobación manual del barbero.
 | --- | --- |
 | Frontend | React 18, JavaScript, Vite, React Router 6 |
 | 3D | Three.js, @react-three/fiber, @react-three/drei |
-| Auth + DB | Firebase Authentication, Cloud Firestore |
+| Auth + DB | Firebase Authentication, Cloud Firestore (Phone Auth support) |
 | Backend | Firebase Cloud Functions (TypeScript) |
 | Hosting | Firebase Hosting |
 | Fechas | date-fns |
@@ -205,7 +209,60 @@ puedes crear barberos y gestionar el panel de administración.*
 1. Ve a Firestore → colección `users/{uid}`.
 2. Edita el campo `role` a `"superadmin"`.
 
-## 🧠 Reglas de negocio implementadas
+## 📱 Autenticación con Teléfono (WhatsApp)
+
+Los clientes pueden registrarse e iniciar sesión usando solo su número de teléfono
+(incluyendo números de WhatsApp). El sistema envía un código de verificación por
+SMS mediante Firebase Phone Authentication.
+
+### Flujo de registro con teléfono:
+
+1. El cliente ingresa su número de teléfono en formato internacional
+   (ej. `+525512345678` para números de México/WhatsApp).
+2. El sistema envía un código de verificación de 6 dígitos por SMS.
+3. El cliente ingresa el código recibido en su celular.
+4. Si el código es correcto, el cliente se registra automáticamente con
+   el nombre que proporciona.
+5. El cliente puede comenzar a usar la aplicación inmediatamente.
+
+### Configuración requerida en Firebase Console:
+
+1. Ve a **Firebase Console** → **Authentication** → **Método de inicio de sesión**.
+2. Habilita **Teléfono**.
+3. Agrega los países permitidos para los números de teléfono.
+4. Configura el verificador de reCAPTCHA (se renderiza automáticamente en la
+   interfaz de login).
+
+### Código de ejemplo (frontend):
+
+```jsx
+import { initPhoneAuthProvider, signInWithPhone, registerWithPhone } from '../services/auth.service';
+
+// Inicializar el provider de reCAPTCHA
+initPhoneAuthProvider('recaptcha-container');
+
+// Función para manejar el inicio de sesión con teléfono
+const handlePhoneLogin = async (phone, code, name) => {
+  try {
+    const user = await signInWithPhone(phone, code);
+    // Usuario autenticado exitosamente
+    console.log('Usuario logueado:', user.uid);
+  } catch (error) {
+    console.error('Error en la verificación:', error);
+  }
+};
+
+// Formulario de registro con teléfono
+return (
+  <div>
+    <input type="tel" placeholder="+525512345678" onChange={(e) => setPhone(e.target.value)} />
+    <input type="text" placeholder="Nombre" onChange={(e) => setName(e.target.value)} />
+    <button onClick={() => window.dispatchEvent(new Event('recaptcha'))}>
+      Continuar con WhatsApp
+    </button>
+  </div>
+);
+```
 
 Toda la lógica sensible vive en **Cloud Functions** y se valida también en
 **Firestore Rules** (defensa en profundidad).
