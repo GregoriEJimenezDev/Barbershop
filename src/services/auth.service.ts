@@ -33,29 +33,72 @@ export interface UserProfile {
 }
 
 /**
- * Register a new client with email/password
+ * Creates the initial admin account if it doesn't exist.
+ * This function should be run once during setup to create the owner/agent account.
+ * The admin can log in with the generated credentials or use OAuth.
  */
-export const registerWithEmail = async ({ name, email, password, phone, role }) => {
+export const createAdminAccount = async (adminName: string, adminPhone: string) => {
   ensureFirebase();
-  const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+  const { createUserWithEmailAndPassword } = await import('firebase/auth');
   const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
 
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-  const { user } = userCredential;
+  // Generate a random email for the admin account
+  const randomEmail = `admin-${Date.now()}@barbershop.com`;
+  const temporaryPassword = 'Admin12345!';
 
-  await updateProfile(user, { displayName: name });
+  try {
+    // Create the user in Firebase Auth
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      randomEmail,
+      temporaryPassword
+    );
+    const { user } = userCredential;
 
-  await setDoc(doc(db, COLLECTIONS.USERS, user.uid), {
-    uid: user.uid,
-    name,
-    email,
-    phone,
-    role: role || ROLES.CLIENT,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
+    // Update profile display name
+    await user.updateProfile({ displayName: adminName });
 
-  return user;
+    // Create user profile in Firestore with SUPERADMIN role
+    await setDoc(doc(db, COLLECTIONS.USERS, user.uid), {
+      uid: user.uid,
+      name: adminName,
+      phone: adminPhone || '',
+      email: randomEmail,
+      role: ROLES.SUPERADMIN,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    return {
+      uid: user.uid,
+      email: randomEmail,
+      name: adminName,
+      phone: adminPhone || '',
+      role: ROLES.SUPERADMIN,
+      temporaryPassword
+    };
+  } catch (error) {
+    // If user already exists, just set the role
+    if ((error as any).code === 'auth/email-already-in-use') {
+      const userDocRef = doc(db, COLLECTIONS.USERS, auth.currentUser.uid);
+      await setDoc(userDocRef, {
+        role: ROLES.SUPERADMIN,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      return { role: ROLES.SUPERADMIN, alreadyExists: true };
+    }
+    throw error;
+  }
+};
+
+/**
+ * Sign in with email and password
+ */
+export const signInWithEmail = async ({ email, password }) => {
+  ensureFirebase();
+  const { signInWithEmailAndPassword } = await import('firebase/auth');
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  return userCredential.user;
 };
 
 export const signInWithEmail = async ({ email, password }) => {

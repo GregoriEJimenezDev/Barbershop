@@ -204,6 +204,65 @@ export const signInWithGoogle = async () => {
   return user;
 };
 
+/**
+ * Creates the initial admin account if it doesn't exist.
+ * This function should be run once during setup to create the owner/agent account.
+ * The admin can log in with the generated credentials or use OAuth.
+ */
+export const createAdminAccount = async (adminName, adminPhone) => {
+  ensureFirebase();
+  const { createUserWithEmailAndPassword } = await import('firebase/auth');
+  const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+
+  // Generate a random email for the admin account
+  const randomEmail = `admin-${Date.now()}@barbershop.com`;
+  const temporaryPassword = 'Admin12345!';
+
+  try {
+    // Create the user in Firebase Auth
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      randomEmail,
+      temporaryPassword
+    );
+    const { user } = userCredential;
+
+    // Update profile display name
+    await user.updateProfile({ displayName: adminName });
+
+    // Create user profile in Firestore with SUPERADMIN role
+    await setDoc(doc(db, COLLECTIONS.USERS, user.uid), {
+      uid: user.uid,
+      name: adminName,
+      phone: adminPhone || '',
+      email: randomEmail,
+      role: ROLES.SUPERADMIN,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    return {
+      uid: user.uid,
+      email: randomEmail,
+      name: adminName,
+      phone: adminPhone || '',
+      role: ROLES.SUPERADMIN,
+      temporaryPassword
+    };
+  } catch (error) {
+    // If user already exists, just set the role
+    if (error.code === 'auth/email-already-in-use') {
+      const userDocRef = doc(db, COLLECTIONS.USERS, auth.currentUser.uid);
+      await setDoc(userDocRef, {
+        role: ROLES.SUPERADMIN,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      return { role: ROLES.SUPERADMIN, alreadyExists: true };
+    }
+    throw error;
+  }
+};
+
 export const signOut = async () => {
   if (!auth) return;
   const { signOut: fbSignOut } = await import('firebase/auth');
