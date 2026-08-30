@@ -35,7 +35,7 @@ export interface UserProfile {
 /**
  * Register a new client with email/password
  */
-export const registerWithEmail = async ({ name, email, password, phone = '' }) => {
+export const registerWithEmail = async ({ name, email, password, phone, role }) => {
   ensureFirebase();
   const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
   const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
@@ -50,7 +50,7 @@ export const registerWithEmail = async ({ name, email, password, phone = '' }) =
     name,
     email,
     phone,
-    role: ROLES.CLIENT,
+    role: role || ROLES.CLIENT,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
