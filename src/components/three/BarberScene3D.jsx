@@ -38,7 +38,7 @@ const SceneRig = () => {
  * Spotlight - Atmospheric lighting that brings warmth to the scene.
  * Reduced shadow quality on mobile for performance.
  */
-const AtmosphericLights = ({ isMobile }: { isMobile: boolean }) => {
+const AtmosphericLights = ({ isMobile }) => {
   return (
     <>
       <ambientLight intensity={0.25} color="#f5e6c8" />
@@ -72,13 +72,14 @@ const AtmosphericLights = ({ isMobile }: { isMobile: boolean }) => {
  * Floor with subtle pattern.
  * Uses lower resolution texture on mobile.
  */
-const Floor = ({ isMobile }: { isMobile: boolean }) => {
+const Floor = ({ isMobile }) => {
   const texture = useMemo(() => {
     const size = isMobile ? 128 : 256;
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
     ctx.fillStyle = '#1a1a1c';
     ctx.fillRect(0, 0, size, size);
     // Checker pattern

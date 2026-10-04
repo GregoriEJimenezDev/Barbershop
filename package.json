@@ -6,8 +6,11 @@
   "description": "Aplicación web de gestión de citas para peluquería/barbería",
   "scripts": {
     "dev": "vite",
+    "predev": "node scripts/restore-dev-html.js",
     "dev:setup": "node scripts/restore-dev-html.js",
+    "prebuild": "node scripts/restore-dev-html.js",
     "build": "vite build && node scripts/copy-dist-to-root.js",
+    "prebuild:raw": "node scripts/restore-dev-html.js",
     "build:raw": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx,ts,tsx --report-unused-disable-directives --max-warnings 0",

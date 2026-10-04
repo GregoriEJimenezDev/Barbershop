@@ -82,7 +82,12 @@ export const AuthProvider = ({ children }) => {
     isClient: profile?.role === ROLES.CLIENT,
     // Backward-compatible aliases
     isAdmin: profile?.role === ROLES.SUPERADMIN,
-    refreshProfile: () => (user ? refreshProfile(user.uid) : Promise.resolve(null)),
+    // Accepts an optional uid so callers can load the profile right after
+    // signIn/register, before the auth listener has pushed the new user.
+    refreshProfile: (uid) => {
+      const target = uid || user?.uid;
+      return target ? refreshProfile(target) : Promise.resolve(null);
+    },
     signOut
   };
 

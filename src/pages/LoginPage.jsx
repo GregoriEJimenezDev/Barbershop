@@ -2,19 +2,28 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { signInWithEmail, signInWithGoogle } from '../services/auth.service';
 import { useAsyncAction } from '../hooks/useAsyncAction';
+import { useAuth } from '../context/AuthContext';
+import { ROLES } from '../utils/constants';
 import Alert from '../components/ui/Alert';
 import Loader from '../components/ui/Loader';
 
+const destinationFor = (role) => {
+  if (role === ROLES.SUPERADMIN) return '/admin';
+  if (role === ROLES.BARBER) return '/barbero';
+  return '/cliente';
+};
+
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { refreshProfile } = useAuth();
   const [form, setForm] = useState({ email: '', password: '' });
   const [formError, setFormError] = useState('');
 
   const { run: handleEmailLogin, loading, errorMessage } = useAsyncAction(
     async ({ email, password }) => {
       const user = await signInWithEmail({ email, password });
-      // Redirect happens via auth state listener; we just push a default
-      navigate('/');
+      const profile = await refreshProfile(user.uid);
+      navigate(destinationFor(profile?.role));
       return user;
     }
   );
@@ -22,7 +31,8 @@ const LoginPage = () => {
   const { run: handleGoogle, loading: loadingGoogle, errorMessage: googleError } =
     useAsyncAction(async () => {
       const user = await signInWithGoogle();
-      navigate('/');
+      const profile = await refreshProfile(user.uid);
+      navigate(destinationFor(profile?.role));
       return user;
     });
 

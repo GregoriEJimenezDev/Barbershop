@@ -1,5 +1,5 @@
 import { ROLES, COLLECTIONS } from '../utils/constants';
-import { auth, db, isFirebaseConfigured } from './firebase.config';
+import { auth, db, functions, isFirebaseConfigured } from './firebase.config';
 
 let _googleProvider = null;
 const getGoogleProvider = async () => {
@@ -20,9 +20,15 @@ const ensureFirebase = () => {
 };
 
 /**
- * Register a new client with email/password
+ * Register a new user with email/password.
+ *
+ * The profile document is ALWAYS created with role 'client' because
+ * firestore.rules only allows `role == 'client'` on create. Requesting a
+ * higher role at create time would be rejected with permission-denied (and
+ * worse, it would let anyone make themselves superadmin).
+ * Use promoteToOwner() right after registration to become the owner.
  */
-export const registerWithEmail = async ({ name, email, password, phone, role }) => {
+export const registerWithEmail = async ({ name, lastName, email, password, phone, role }) => {
   ensureFirebase();
   const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
   const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
@@ -35,14 +41,34 @@ export const registerWithEmail = async ({ name, email, password, phone, role }) 
   await setDoc(doc(db, COLLECTIONS.USERS, user.uid), {
     uid: user.uid,
     name,
+    lastName: lastName || '',
     email,
     phone,
-    role: role || ROLES.CLIENT,
+    role: ROLES.CLIENT,
+    requestedRole: role || ROLES.CLIENT,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
 
   return user;
+};
+
+/**
+ * Promotes an authenticated user to superadmin via the `setUserRole` Cloud
+ * Function. The function only allows this while no superadmin exists yet
+ * (bootstrap), so it is safe to call from the registration flow.
+ *
+ * Requires the Cloud Functions to be deployed (plan Blaze).
+ */
+export const promoteToOwner = async (uid) => {
+  ensureFirebase();
+  if (!functions) {
+    throw new Error('Las Cloud Functions no están disponibles en este proyecto.');
+  }
+  const { httpsCallable } = await import('firebase/functions');
+  const setUserRole = httpsCallable(functions, 'setUserRole');
+  const result = await setUserRole({ uid, role: ROLES.SUPERADMIN });
+  return result.data;
 };
 
 /**
